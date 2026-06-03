@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCMT Choice Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue: #2563eb; --blue-bg: #eff6ff; --blue-text: #1e40af;
+    --cyan: #0891b2; --cyan-bg: #ecfeff; --cyan-text: #164e63;
+    --purple: #7c3aed; --purple-bg: #f5f3ff; --purple-text: #4c1d95;
+    --green: #059669; --green-bg: #ecfdf5; --green-text: #064e3b;
+    --orange: #d97706; --orange-bg: #fffbeb; --orange-text: #78350f;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+    --gray-300: #d1d5db; --gray-400: #9ca3af; --gray-500: #6b7280;
+    --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+    --row-h: 42px; --header-h: 44px;
+    --font: 'DM Mono', 'Fira Code', monospace;
+    
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f3f4f6;
+    --color-background-tertiary: #f8f9fa;
+    --color-background-info: #e0f2fe;
+    --color-border-tertiary: #e5e7eb;
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-tertiary: #9ca3af;
+  }
+  
+  body { font-family: var(--font); background: var(--color-background-tertiary); color: var(--color-text-primary); }
+  h2.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  
+  #app { display: flex; flex-direction: column; height: 100vh; min-height: 600px; }
+  
+  .topbar {
+    background: var(--color-background-primary);
+    border-bottom: 1px solid var(--color-border-tertiary);
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .app-title { font-size: 14px; font-weight: 500; letter-spacing: -0.3px; white-space: nowrap; margin-right: 4px; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+  .badge-count { background: var(--blue-bg); color: var(--blue-text); }
+  
+  .search-wrap { flex: 1; min-width: 140px; position: relative; }
+  .search-wrap input {
+    width: 100%; height: 32px; font-size: 12px; padding: 0 10px 0 28px;
+    border: 1px solid var(--color-border-tertiary); border-radius: 6px;
+    background: var(--color-background-secondary); color: var(--color-text-primary);
+    font-family: var(--font); outline: none; transition: border 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--blue); }
+  .search-wrap .si { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--color-text-tertiary); pointer-events: none; }
+  
+  select.filter-sel {
+    height: 32px; font-size: 11px; padding: 0 8px; border: 1px solid var(--color-border-tertiary);
+    border-radius: 6px; background: var(--color-background-secondary); color: var(--color-text-primary);
+    font-family: var(--font); cursor: pointer; outline: none;
+  }
+  
+  .btn-sm {
+    height: 32px; font-size: 12px; padding: 0 12px; border: 1px solid var(--color-border-tertiary);
+    border-radius: 6px; background: var(--color-background-primary); color: var(--color-text-primary);
+    font-family: var(--font); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s; font-weight: 500;
+  }
+  .btn-sm:hover { background: var(--color-background-secondary); }
+  .btn-sm.active { background: var(--gray-800); color: white; border-color: var(--gray-800); }
+  
+  .btn-final {
+    background: var(--green); color: white; border-color: var(--green); box-shadow: 0 2px 4px rgba(5,150,105,0.2);
+  }
+  .btn-final:hover { background: #047857; color: white; }
+  
+  .toggle-wrap { display: flex; border: 1px solid var(--color-border-tertiary); border-radius: 6px; overflow: hidden; }
+  .toggle-wrap .btn-sm { border: none; border-radius: 0; }
+  .toggle-wrap .btn-sm + .btn-sm { border-left: 1px solid var(--color-border-tertiary); }
+  
+  .stats-bar {
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border-tertiary);
+    padding: 8px 14px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .stat-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  
+  .table-wrapper { flex: 1; overflow: auto; position: relative; }
+  
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; min-width: 1000px; }
+  thead { position: sticky; top: 0; z-index: 50; }
+  thead th {
+    background: var(--color-background-secondary);
+    border-bottom: 2px solid var(--color-border-tertiary);
+    padding: 0 10px; height: var(--header-h); text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--color-text-secondary);
+    letter-spacing: 0.5px; white-space: nowrap; user-select: none;
+  }
+  
+  thead th:first-child { width: 36px; padding: 0; }
+  thead th:nth-child(2) { width: 46px; }
+  thead th:nth-child(3) { width: 28%; }
+  thead th:nth-child(4) { width: 110px; }
+  thead th:nth-child(5) { width: auto; }
+  thead th:nth-child(6) { width: 110px; }
+  thead th:nth-child(7), thead th:nth-child(8), thead th:nth-child(9), thead th:nth-child(10), thead th:nth-child(11) { width: 70px; }
+  thead th:last-child { width: 100px; }
+  
+  tbody tr {
+    border-bottom: 1px solid var(--color-border-tertiary);
+    height: var(--row-h);
+    transition: background 0.15s; background: var(--color-background-primary);
+  }
+  tbody tr:hover { background: var(--color-background-secondary); }
+  tbody tr.pinned { background: #fffbeb !important; }
+  tbody tr.fav { background: #fff0f6 !important; }
+  tbody tr.dragging { opacity: 0.4; background: var(--color-background-info) !important; }
+  tbody tr.drag-over-above { border-top: 2px solid var(--blue); }
+  tbody tr.drag-over-below { border-bottom: 2px solid var(--blue); }
+  
+  td { padding: 0 10px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td:first-child { padding: 0; text-align: center; }
+  
+  td input {
+      width: 100%; height: 26px; border: 1px solid transparent; border-radius: 4px;
+      font-family: var(--font); font-size: 11px; padding: 0 4px; background: transparent;
+      transition: all 0.2s; text-align: center;
+  }
+  td input:hover, td input:focus { border-color: var(--color-border-tertiary); background: var(--color-background-primary); outline: none; }
+  
+  select.status-sel {
+      width: 100%; height: 28px; border: 1px solid var(--color-border-tertiary);
+      border-radius: 6px; font-family: var(--font); font-size: 11px; padding: 0 4px;
+      cursor: pointer; outline: none; font-weight: 500; transition: background 0.2s;
+  }
+  select.status-sel.green { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  select.status-sel.yellow { background: #fef08a; color: #854d0e; border-color: #fde047; }
+  select.status-sel.pink { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+  select.status-sel.red { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+  select.status-sel option { background: white; color: black; }
+  
+  .drag-handle {
+    cursor: grab; color: var(--color-text-tertiary); font-size: 16px;
+    padding: 0 10px; height: 100%; display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  .drag-handle:active { cursor: grabbing; color: var(--blue); }
+  
+  .sno { color: var(--color-text-tertiary); font-size: 11px; font-weight: 600; }
+  .college-name { font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+  .course-name { font-size: 11px; color: var(--color-text-secondary); }
+  
+  .cat-badge {
+    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 12px;
+    white-space: nowrap; display: inline-block;
+  }
+  .cat-ece { background: var(--blue-bg); color: var(--blue-text); }
+  .cat-gece { background: var(--cyan-bg); color: var(--cyan-text); }
+  .cat-aiml { background: var(--purple-bg); color: var(--purple-text); }
+  .cat-csit { background: var(--green-bg); color: var(--green-text); }
+  .cat-other { background: var(--orange-bg); color: var(--orange-text); }
+  
+  .row-actions { display: flex; align-items: center; gap: 4px; }
+  .row-btn {
+    width: 28px; height: 28px; border: none; background: transparent; cursor: pointer;
+    border-radius: 6px; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; color: var(--color-text-secondary);
+  }
+  .row-btn:hover { background: var(--gray-200); color: var(--color-text-primary); }
+  .row-btn.active-fav { color: #f59e0b; }
+  .row-btn.active-pin { color: #3b82f6; }
+  
+  .group-container { padding: 16px; }
+  .group-section { margin-bottom: 24px; }
+  .group-header {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+  }
+  .group-title { font-size: 13px; font-weight: 600; }
+  .group-count { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .group-rows { border: 1px solid var(--color-border-tertiary); border-radius: 8px; overflow: hidden; background: white; }
+  .group-row {
+    display: flex; align-items: center; padding: 8px 14px; gap: 12px;
+    border-bottom: 1px solid var(--color-border-tertiary); font-size: 12px;
+    transition: background 0.1s;
+  }
+  .group-row:last-child { border-bottom: none; }
+  .group-row:hover { background: var(--color-background-secondary); }
+  .group-sno { min-width: 24px; font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); }
+  .group-college { font-weight: 600; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-course { color: var(--color-text-secondary); font-size: 11px; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--color-background-primary); border-radius: 12px;
+    border: 1px solid var(--color-border-tertiary); padding: 24px; width: 400px; max-width: 90vw;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  }
+  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--color-text-secondary); font-size: 13px; font-weight: 500; }
+  
+  .pag-bar {
+    background: var(--color-background-primary); border-top: 1px solid var(--color-border-tertiary);
+    padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 12px;
+    color: var(--color-text-secondary); font-weight: 500;
+  }
+  .pag-btn {
+    width: 28px; height: 28px; border: 1px solid var(--color-border-tertiary); background: transparent;
+    border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font);
+    color: var(--color-text-primary); display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .pag-btn:hover:not(:disabled) { background: var(--color-background-secondary); }
+  .pag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pag-btn.cur { background: var(--gray-800); color: white; border-color: var(--gray-800); }
+  .pag-spacer { flex: 1; }
+
+  /* Toast Notification */
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .toast {
+      background: var(--gray-900); color: white; padding: 12px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transition: opacity 0.3s, transform 0.3s;
+      opacity: 0; transform: translateY(10px);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: #ef4444; }
+  .toast.success { background: #10b981; }
+
+  /* AI Features */
+  .btn-ai { background: linear-gradient(135deg, #7c3aed, #db2777); color: white; border: none; font-weight: 600; }
+  .btn-ai:hover { opacity: 0.9; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3); }
+  .ai-modal-content { font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); max-height: 400px; overflow-y: auto; margin-top: 15px; padding: 16px; background: var(--color-background-secondary); border-radius: 8px; white-space: pre-wrap; border: 1px solid var(--color-border-tertiary); }
+  .ai-modal-content strong { color: var(--color-text-primary); }
+  .loader { border: 3px solid #f3f3f3; border-top: 3px solid #7c3aed; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <h2 class="sr-only">CCMT Choice Manager — drag and reorder 163 M.Tech admission preferences from CCMT 2026</h2>
+  
+  <div class="topbar">
+    <span class="app-title"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Choice Manager</span>
+    <span class="badge badge-count" id="total-badge">163 choices</span>
+    
+    <div class="search-wrap">
+      <i class="ti ti-search si"></i>
+      <input type="text" id="search-inp" placeholder="Search college, course…" oninput="applyFilters()">
+    </div>
+    
+    <select class="filter-sel" id="cat-filter" onchange="applyFilters()">
+      <option value="">All categories</option>
+      <option value="ECE Core">ECE Core</option>
+      <option value="Generic ECE">Generic ECE</option>
+      <option value="AI/ML">AI / ML / Data Science</option>
+      <option value="CS/IT">CS / IT</option>
+      <option value="Other">Other</option>
+    </select>
+    
+    <div class="toggle-wrap">
+      <button class="btn-sm active" id="btn-table" onclick="setView('table')"><i class="ti ti-table" aria-hidden="true"></i></button>
+      <button class="btn-sm" id="btn-group" onclick="setView('group')"><i class="ti ti-layout-list" aria-hidden="true"></i></button>
+    </div>
+    
+    <button class="btn-sm btn-ai" onclick="analyzePreferences()"><i class="ti ti-brain" aria-hidden="true"></i> AI Analyze</button>
+    <button class="btn-sm" onclick="exportJSON()"><i class="ti ti-file-code" aria-hidden="true"></i> JSON Backup</button>
+    <button class="btn-sm" onclick="document.getElementById('imp-modal').classList.add('open')"><i class="ti ti-upload" aria-hidden="true"></i> Import</button>
+    <button class="btn-sm btn-final" onclick="exportFinalCSV()"><i class="ti ti-download" aria-hidden="true"></i> Download Final List</button>
+  </div>
+  
+  <div class="stats-bar" id="stats-bar"></div>
+  
+  <div id="table-view" class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>S.No</th>
+          <th>College Name</th>
+          <th>Category</th>
+          <th>Course specialisation</th>
+          <th>College Status</th>
+          <th title="Round 1 cutoff">R1</th>
+          <th title="Round 2 cutoff">R2</th>
+          <th title="Round 3 cutoff">R3</th>
+          <th title="Special Round 1 cutoff">SR1</th>
+          <th title="Special Round 2 cutoff">SR2</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="empty-state" id="empty-msg" style="display:none">
+        <i class="ti ti-mood-empty" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
+        No choices match your current filters.
+    </div>
+  </div>
+  
+  <div id="group-view" class="group-container" style="display:none; overflow:auto; flex:1;"></div>
+  
+  <div class="pag-bar">
+    <span id="pag-info"></span>
+    <span class="pag-spacer"></span>
+    <div id="pag-btns" style="display:flex;gap:6px;"></div>
+    <select class="filter-sel" id="page-size" onchange="setPageSize()" style="margin-left:12px;">
+      <option value="25">25 / page</option>
+      <option value="50" selected>50 / page</option>
+      <option value="100">100 / page</option>
+      <option value="9999">All choices</option>
+    </select>
+  </div>
+</div>
+
+<div class="modal-overlay" id="imp-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <h3><i class="ti ti-upload" aria-hidden="true"></i> Import Choices</h3>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:16px;">Paste a JSON array or CSV data with columns: <strong>college, course</strong>.</p>
+    <textarea id="imp-text" style="width:100%;height:140px;font-size:12px;font-family:var(--font);border:1px solid var(--color-border-tertiary);border-radius:8px;padding:12px;background:var(--color-background-secondary);color:var(--color-text-primary);resize:vertical; outline:none;" placeholder='[{"college":"NIT Rourkela","course":"VLSI Design"},...]'></textarea>
+    <div class="modal-btns">
+      <button class="btn-sm" onclick="document.getElementById('imp-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-sm" style="background:var(--gray-800);color:white;border-color:var(--gray-800);" onclick="doImport()">Import Data</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- AI Modal -->
+<div class="modal-overlay" id="ai-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width: 550px; max-width: 95vw;">
+    <h3 id="ai-modal-title"><i class="ti ti-sparkles" style="color:#7c3aed"></i> AI Insights</h3>
+    <div class="loader" id="ai-loader"></div>
+    <div id="ai-content" class="ai-modal-content" style="display:none;"></div>
+    <div class="modal-btns">
+      <button class="btn-sm" onclick="document.getElementById('ai-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW = [
+  ["National Institute of Technology, Warangal","Quantum Technology"],
+  ["National Institute of Technology, Rourkela","VLSI Design & Embedded Systems"],
+  ["National Institute of Technology, Rourkela","Machine Learning and Signal Processing"],
+  ["National Institute of Technology, Rourkela","Signal & Image Processing"],
+  ["National Institute of Technology, Rourkela","Communication & Networks"],
+  ["National Institute of Technology, Rourkela","RF and Microwave systems"],
+  ["Motilal Nehru NIT Allahabad","Geoinformatics"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Intelligent Communication System"],
+  ["National Institute of Technology Raipur","VLSI & Embedded Systems"],
+  ["National Institute of Technology Meghalaya","VLSI & Embedded Systems"],
+  ["National Institute of Technology Sikkim","M.Tech in VLSI and Embedded Systems"],
+  ["National Institute of Technology Sikkim","M.Tech in Communication and Signal Processing"],
+  ["National Institute of Technology, Tiruchirappalli","Data Analytics"],
+  ["National Institute of Technology Agartala","IOT and Sensor Systems"],
+  ["NIT Karnataka, Surathkal","Computational and Data Science"],
+  ["National Institute of Technology, Warangal","Artificial Intelligence"],
+  ["Motilal Nehru NIT Allahabad","CSE in AI & Data Science"],
+  ["National Institute of Technology, Tiruchirappalli","Material Science & Engineering"],
+  ["National Institute of Technology, Warangal","Materials Science and Technology"],
+  ["National Institute of Technology, Rourkela","Atmosphere and Ocean Science"],
+  ["National Institute of Technology, Rourkela","Energy and Environmental Engineering"],
+  ["National Institute of Technology, Rourkela","Electronics and Instrumentation Engineering"],
+  ["Visvesvaraya NIT, Nagpur","Computer Science & Engineering"],
+  ["Visvesvaraya NIT, Nagpur","Biomedical Engineering"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Artificial Intelligence"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Data Analytics"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Data Science & Engineering"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Machine Intelligence and Automation"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Electric Vehicle Design"],
+  ["Dr. BR Ambedkar NIT Jalandhar","CSE (Information Security)"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Computer Science & Engineering"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Energy and Environmental Engineering"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Industrial Engineering and Data Analytics"],
+  ["Dr. BR Ambedkar NIT Jalandhar","Renewable Energy"],
+  ["IIIT Allahabad","M.Tech ECE – Microelectronics and VLSI"],
+  ["IIIT Allahabad","M.Tech ECE – Communication and Signal Processing"],
+  ["ABV-IIITM Gwalior","Wireless Networks and Computing"],
+  ["ABV-IIITM Gwalior","IC Design and Technology"],
+  ["IIIT Vadodara, Gandhinagar","M.Tech ECE – VLSI/Chip Design & ML"],
+  ["IIIT Allahabad","M.Tech IT – Robotics and AI"],
+  ["University of Hyderabad","Artificial Intelligence"],
+  ["IIIT Allahabad","M.Tech Quantum Information and Technologies"],
+  ["IIIT Vadodara, Gandhinagar","M.Tech ECE – AI and Communication"],
+  ["IIIT Pune","Electronics and Communication Engineering"],
+  ["PDPM IIITDM Jabalpur","Nanoelectronics and VLSI Design"],
+  ["PDPM IIITDM Jabalpur","Communication & Signal Processing"],
+  ["IIIT Allahabad","M.Tech IT – AI and Machine Learning"],
+  ["IIIT Allahabad","M.Tech IT – Networks Systems and Computing"],
+  ["IIIT Allahabad","M.Tech IT – Software Engineering and Automation"],
+  ["University of Hyderabad","Computer Science"],
+  ["ABV-IIITM Gwalior","Information Technology"],
+  ["ABV-IIITM Gwalior","Computer Science and Engineering"],
+  ["ABV-IIITM Gwalior","Information and Cyber Security"],
+  ["IIITDM Kancheepuram, Chennai","CSE – Data Science and AI"],
+  ["National Institute of Technology Goa","Computer Science & Engineering"],
+  ["National Institute of Technology Puducherry","Computer Science & Engineering"],
+  ["IIST Thiruvananthapuram","Quantum Technology"],
+  ["ABV-IIITM Gwalior","Autonomous Systems and Machine Intelligence"],
+  ["IIIT Allahabad","M.Tech IT – Data Engineering"],
+  ["Malaviya NIT Jaipur","Computer Science & Information Security"],
+  ["Malaviya NIT Jaipur","Computer Science & Engineering"],
+  ["National Institute of Technology Durgapur","Artificial Intelligence & Data Science"],
+  ["IIIT Allahabad","M.Tech IT – Human Machine Interaction"],
+  ["IIIT Allahabad","M.Tech IT – Cyber Laws and Information Security"],
+  ["IIIT Pune","Computer Science & Engineering"],
+  ["IIIT Vadodara, Diu Campus","Artificial Intelligence"],
+  ["IIIT Vadodara, Gandhinagar","Artificial Intelligence"],
+  ["IIIT Vadodara, Gandhinagar","Data Science"],
+  ["National Institute of Technology Delhi","Computer Science & Engineering"],
+  ["National Institute of Technology Delhi","Artificial Intelligence & Data Science"],
+  ["National Institute of Technology Patna","Data Science & Engineering"],
+  ["National Institute of Technology Patna","Cyber Security"],
+  ["PDPM IIITDM Jabalpur","Artificial Intelligence and Machine Learning"],
+  ["PDPM IIITDM Jabalpur","Data Science"],
+  ["National Institute of Technology, Kurukshetra","VLSI Design & Embedded Systems"],
+  ["National Institute of Technology, Kurukshetra","Embedded System Design"],
+  ["IIIT Lucknow","Computer Science"],
+  ["National Institute of Technology Sikkim","M.Tech in AI and Machine Learning"],
+  ["IIEST Shibpur, Howrah","Artificial Intelligence and Machine Learning"],
+  ["IIEST Shibpur, Howrah","Artificial Intelligence"],
+  ["IIEST Shibpur, Howrah","Communication Engineering & Signal Processing"],
+  ["National Institute of Technology, Jamshedpur","Data Science and Engineering"],
+  ["IIITDM Kurnool","ECE – Signal Processing and Communication"],
+  ["IIITDM Kurnool","Artificial Intelligence & Data Science"],
+  ["IIIT Bhopal","M.Tech in Artificial Intelligence"],
+  ["IIIT Bhopal","M.Tech in Data Science"],
+  ["IIIT Kota","CSE – AI and Data Science"],
+  ["SVNIT Surat","Data Science"],
+  ["Punjab Engineering College, Chandigarh","Computer Science & Information Security"],
+  ["National Institute of Technology Hamirpur","CSE (Artificial Intelligence)"],
+  ["National Institute of Technology Meghalaya","Computer Science & Engineering"],
+  ["IIITDM Kurnool","M.Tech Drones and IoT"],
+  ["DIAT, Girinagar, Pune","Laser and Electro Optics"],
+  ["Malaviya NIT Jaipur","Industrial Engineering"],
+  ["Malaviya NIT Jaipur","Materials Engineering"],
+  ["Maulana Azad NIT Bhopal","Artificial Intelligence"],
+  ["Maulana Azad NIT Bhopal","Industrial Engineering & Management"],
+  ["Maulana Azad NIT Bhopal","Renewable Energy"],
+  ["Motilal Nehru NIT Allahabad","M.Tech in Cyber Physical System"],
+  ["National Institute of Technology Hamirpur","Energy Technology"],
+  ["National Institute of Technology Nagaland","Computer Science & Engineering"],
+  ["National Institute of Technology Raipur","Information Technology"],
+  ["National Institute of Technology Raipur","Computer Science & Engineering"],
+  ["National Institute of Technology Raipur","Artificial Intelligence & Data Science"],
+  ["NIT Arunachal Pradesh","Innovation and Entrepreneurship"],
+  ["National Institute of Technology, Rourkela","Biomedical Engineering"],
+  ["National Institute of Technology, Rourkela","Biotechnology"],
+  ["National Institute of Technology, Rourkela","Chemical Engineering"],
+  ["National Institute of Technology, Rourkela","Mining Engineering"],
+  ["National Institute of Technology Uttarakhand","Artificial Intelligence and Machine Learning"],
+  ["IIEST Shibpur, Howrah","Information Technology"],
+  ["ABV-IIITM Gwalior","Dual Degree M.Tech CSE + Ph.D"],
+  ["ABV-IIITM Gwalior","Dual Degree M.Tech IT + Ph.D"],
+  ["ABV-IIITM Gwalior","Dual Degree M.Tech EEE + PhD"],
+  ["IIIT Allahabad","M.Tech Biomedical Analytics and Engineering"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD ECE – Microelectronics & VLSI"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD ECE – Communication & Signal"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Networks Systems"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Cyber Laws"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Software Engineering"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Data Engineering"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – AI and Machine Learning"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Robotics and AI"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD IT – Human Machine Interaction"],
+  ["IIIT Allahabad","Dual Degree M.Tech–PhD Bioinformatics"],
+  ["IIIT Allahabad","M.Tech Bioinformatics"],
+  ["IIITDM Kancheepuram, Chennai","Mechanical – Smart Manufacturing"],
+  ["PDPM IIITDM Jabalpur","CAD-CAM"],
+  ["PDPM IIITDM Jabalpur","Mechatronics"],
+  ["PDPM IIITDM Jabalpur","Manufacturing & Automation"],
+  ["PDPM IIITDM Jabalpur","Power & Control"],
+  ["IIITDM Kurnool","Computer Science & Engineering"],
+  ["IIITDM Kurnool","CSE (Cyber Security)"],
+  ["IIIT Bhagalpur, Bihar","Artificial Intelligence & Data Science"],
+  ["NIELIT Deemed University, Aurangabad","Artificial Intelligence"],
+  ["IIIT Naya Raipur","Computer Science & Engineering"],
+  ["Punjab Engineering College, Chandigarh","Industrial Engineering & Management"],
+  ["IIIT Bhubaneswar","Computer Science & Engineering"],
+  ["Central Institute of Technology, Kokrajhar","Computer Science & Engineering"],
+  ["DIAT, Girinagar, Pune","Cyber Security"],
+  ["DIAT, Girinagar, Pune","Sensor Technology"],
+  ["DIAT, Girinagar, Pune","Quantum Computing"],
+  ["DIAT, Girinagar, Pune","Modeling and Simulation"],
+  ["DIAT, Girinagar, Pune","Data Science"],
+  ["DIAT, Girinagar, Pune","CSE (Artificial Intelligence)"],
+  ["Central University of Punjab, Bathinda","Computer Science & Technology"],
+  ["Central University of Punjab, Bathinda","CSE (Cyber Security)"],
+  ["Guru Ghasidas Vishwavidyalaya, Bilaspur","Information Technology"],
+  ["Guru Ghasidas Vishwavidyalaya, Bilaspur","Computer Science & Engineering"],
+  ["IIST Thiruvananthapuram","Geoinformatics"],
+  ["NITTTR Bhopal","M.Tech in Defence Technology"],
+  ["Jawaharlal Nehru University, New Delhi","Computer Science & Engineering"],
+  ["NIELIT Deemed University, Ropar","Data Engineering"],
+  ["NIELIT Deemed University, Ropar","Cyber Forensics and Information Security"],
+  ["NIELIT Deemed University, Ropar","Artificial Intelligence"],
+  ["NIELIT Deemed University, Srinagar","Cyber Forensics"],
+  ["NIELIT Deemed University, Imphal","Artificial Intelligence"],
+  ["NIELIT Deemed University, Agartala","Data Engineering"],
+  ["NIELIT Deemed University, Itanagar","AI and Data Science"],
+  ["SCTIMST, Trivandrum","M.Tech Biomedical Engineering"],
+  ["NIELIT, Aizawl","M.Tech in Artificial Intelligence"],
+  ["Gurukula Kangri Vishwavidyalaya, Haridwar","Computer Science & Engineering"],
+  ["Shri Mata Vaishno Devi University, Katra","Artificial Intelligence"],
+];
+
+function categorize(course) {
+  const c = course.toLowerCase();
+  if (/vlsi|embedded|signal process|communication system|rf |microwave|ic design|microelectronics|nanoelectronics|intelligent communication/.test(c)) return 'ECE Core';
+  if (/iot|sensor|electron|instrument|quantum tech|power & control|laser|electro optic|wireless|image process/.test(c)) return 'Generic ECE';
+  if (/artificial intel|machine learn|data science|data analytic|data engineer|robotics|machine intel|ai and data|ai & data|autonomous|cyber physical/.test(c)) return 'AI/ML';
+  if (/computer science|information tech|cyber security|information security|network|software eng|cyber law|bioinformat|cyber forensic/.test(c)) return 'CS/IT';
+  return 'Other';
+}
+
+const CAT_META = {
+  'ECE Core':    { cls: 'cat-ece',  color: '#2563eb', bg: '#eff6ff', label: 'ECE Core' },
+  'Generic ECE': { cls: 'cat-gece', color: '#0891b2', bg: '#ecfeff', label: 'Generic ECE' },
+  'AI/ML':       { cls: 'cat-aiml', color: '#7c3aed', bg: '#f5f3ff', label: 'AI / ML' },
+  'CS/IT':       { cls: 'cat-csit', color: '#059669', bg: '#ecfdf5', label: 'CS / IT' },
+  'Other':       { cls: 'cat-other',color: '#d97706', bg: '#fffbeb', label: 'Other' },
+};
+
+let data = [];
+let filtered = [];
+let currentView = 'table';
+let currentPage = 1;
+let pageSize = 50;
+let dragSrcIdx = null;
+
+let autoScrollInterval = null;
+const AUTO_SCROLL_THRESHOLD = 80;
+const AUTO_SCROLL_SPEED = 20;
+
+function handleAutoScroll(e){
+  const wrapper = document.querySelector('.table-wrapper');
+  if(!wrapper) return;
+  const rect = wrapper.getBoundingClientRect();
+  clearInterval(autoScrollInterval);
+
+  if(e.clientY < rect.top + AUTO_SCROLL_THRESHOLD){
+    autoScrollInterval = setInterval(() => { wrapper.scrollTop -= AUTO_SCROLL_SPEED; }, 20);
+  } else if(e.clientY > rect.bottom - AUTO_SCROLL_THRESHOLD){
+    autoScrollInterval = setInterval(() => { wrapper.scrollTop += AUTO_SCROLL_SPEED; }, 20);
+  }
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = type === 'success' ? '<i class="ti ti-check" style="font-size:16px;"></i>' : '<i class="ti ti-alert-triangle" style="font-size:16px;"></i>';
+    toast.innerHTML = `${icon} <span>${message}</span>`;
+    
+    container.appendChild(toast);
+    
+    // Trigger animation
+    requestAnimationFrame(() => toast.classList.add('show'));
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function initData() {
+  const saved = (() => { try { const s = localStorage.getItem('ccmt_choices_v2'); return s ? JSON.parse(s) : null; } catch(e){ return null; }})();
+  if (saved && Array.isArray(saved) && saved.length > 0) {
+    data = saved;
+  } else {
+    data = RAW.map((r, i) => ({
+      id: Date.now() + i,
+      college: r[0],
+      course: r[1],
+      category: categorize(r[1]),
+      fav: false,
+      pinned: false,
+      round1:'', round2:'', round3:'', special1:'', special2:'', status:'',
+    }));
+    save();
+  }
+}
+
+function save() {
+  try { localStorage.setItem('ccmt_choices_v2', JSON.stringify(data)); } catch(e){}
+}
+
+function applyFilters() {
+  const q = document.getElementById('search-inp').value.toLowerCase().trim();
+  const cat = document.getElementById('cat-filter').value;
+  filtered = data.filter(r => {
+    const matchQ = !q || r.college.toLowerCase().includes(q) || r.course.toLowerCase().includes(q) || r.category.toLowerCase().includes(q);
+    const matchC = !cat || r.category === cat;
+    return matchQ && matchC;
+  });
+  currentPage = 1;
+  render();
+}
+
+function render() {
+  renderStats();
+  if (currentView === 'table') renderTable();
+  else renderGroup();
+}
+
+function renderStats() {
+  const counts = {};
+  data.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
+  document.getElementById('stats-bar').innerHTML = Object.entries(CAT_META).map(([k,m])=>`
+    <span class="stat-chip">
+      <span class="dot" style="background:${m.color}"></span>
+      <span style="color:var(--color-text-secondary)">${m.label}</span>
+      <span style="font-weight:600;color:var(--color-text-primary)">${counts[k]||0}</span>
+    </span>
+  `).join('') + `<span class="stat-chip" style="margin-left:auto"><span style="color:var(--color-text-tertiary)">Total Choices:</span> <span style="font-weight:600">${data.length}</span></span>`;
+  document.getElementById('total-badge').textContent = data.length + ' choices';
+}
+
+function renderTable() {
+  const pinned = filtered.filter(r=>r.pinned);
+  const rest = filtered.filter(r=>!r.pinned);
+  const ordered = [...pinned, ...rest];
+  
+  const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage-1)*pageSize;
+  const page = ordered.slice(start, start+pageSize);
+  
+  const globalIndices = page.map(r => data.indexOf(r));
+  
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = page.map((r, pi) => {
+    const globalI = globalIndices[pi];
+    const sno = data.indexOf(r) + 1;
+    const m = CAT_META[r.category];
+    return `<tr data-id="${r.id}" data-gidx="${globalI}"
+      draggable="true"
+      ondragstart="onDragStart(event,${globalI})"
+      ondragover="onDragOver(event,${globalI})"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event,${globalI})"
+      ondragend="onDragEnd()"
+      class="${r.pinned?'pinned':''}${r.fav?' fav':''}">
+      <td><span class="drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></span></td>
+      <td class="sno">${sno}</td>
+      <td title="${r.college}"><span class="college-name">${r.college}</span></td>
+      <td><span class="cat-badge ${m.cls}">${m.label}</span></td>
+      <td title="${r.course}" class="course-name">${r.course}</td>
+      <td>
+        <select class="status-sel ${r.status || ''}" onchange="updateCollegeStatusByGlobalId(${r.id}, this.value)">
+            <option value="" ${!r.status?'selected':''}>- None -</option>
+            <option value="green" ${r.status==='green'?'selected':''}>🟢 Green</option>
+            <option value="yellow" ${r.status==='yellow'?'selected':''}>🟡 Yellow</option>
+            <option value="pink" ${r.status==='pink'?'selected':''}>🩷 Pink</option>
+            <option value="red" ${r.status==='red'?'selected':''}>🔴 Red</option>
+        </select>
+      </td>
+      <td><input type="text" placeholder="-" value="${r.round1||''}" onchange="updateField(${r.id},'round1',this.value)"></td>
+      <td><input type="text" placeholder="-" value="${r.round2||''}" onchange="updateField(${r.id},'round2',this.value)"></td>
+      <td><input type="text" placeholder="-" value="${r.round3||''}" onchange="updateField(${r.id},'round3',this.value)"></td>
+      <td><input type="text" placeholder="-" value="${r.special1||''}" onchange="updateField(${r.id},'special1',this.value)"></td>
+      <td><input type="text" placeholder="-" value="${r.special2||''}" onchange="updateField(${r.id},'special2',this.value)"></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn" title="Ask AI about this course" onclick="askAIAboutCourse(${r.id})"><i class="ti ti-sparkles" style="color:#7c3aed"></i></button>
+          <button class="row-btn ${r.fav?'active-fav':''}" title="${r.fav?'Unfavorite':'Favorite'}" onclick="toggleFav(${r.id})">${r.fav?'<i class="ti ti-star-filled"></i>':'<i class="ti ti-star"></i>'}</button>
+          <button class="row-btn ${r.pinned?'active-pin':''}" title="${r.pinned?'Unpin from top':'Pin to top'}" onclick="togglePin(${r.id})">${r.pinned?'<i class="ti ti-pin-filled"></i>':'<i class="ti ti-pin"></i>'}</button>
+          <button class="row-btn" title="Delete choice" onclick="deleteRow(${r.id})" style="color:#ef4444"><i class="ti ti-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  
+  document.getElementById('empty-msg').style.display = ordered.length===0 ? 'block' : 'none';
+  renderPagination(ordered.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+  const start = (currentPage-1)*pageSize + 1;
+  const end = Math.min(currentPage*pageSize, total);
+  document.getElementById('pag-info').textContent = total>0 ? `Showing ${start}–${end} of ${total} results` : '0 results';
+  
+  const wrap = document.getElementById('pag-btns');
+  const pages = [];
+  if (totalPages <= 7) { for(let i=1;i<=totalPages;i++) pages.push(i); }
+  else {
+    pages.push(1);
+    if (currentPage > 3) pages.push('…');
+    for(let i=Math.max(2,currentPage-1);i<=Math.min(totalPages-1,currentPage+1);i++) pages.push(i);
+    if (currentPage < totalPages-2) pages.push('…');
+    pages.push(totalPages);
+  }
+  wrap.innerHTML = `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>` +
+    pages.map(p=>p==='…'?`<span style="padding:0 6px;font-size:12px;color:var(--color-text-tertiary)">…</span>`:`<button class="pag-btn ${p===currentPage?'cur':''}" onclick="goPage(${p})">${p}</button>`).join('') +
+    `<button class="pag-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+}
+
+function goPage(p) {
+  const max = Math.ceil(filtered.length/pageSize)||1;
+  currentPage = Math.max(1, Math.min(p, max));
+  renderTable();
+}
+
+function setPageSize() {
+  pageSize = parseInt(document.getElementById('page-size').value);
+  currentPage = 1;
+  renderTable();
+}
+
+function renderGroup() {
+  const cats = ['ECE Core','Generic ECE','AI/ML','CS/IT','Other'];
+  const gv = document.getElementById('group-view');
+  gv.innerHTML = cats.map(cat => {
+    const rows = filtered.filter(r=>r.category===cat);
+    if (!rows.length) return '';
+    const m = CAT_META[cat];
+    return `<div class="group-section">
+      <div class="group-header" style="background:${m.bg}">
+        <span class="dot" style="background:${m.color}"></span>
+        <span class="group-title" style="color:${m.color}">${m.label}</span>
+        <span class="group-count" style="background:${m.color}22;color:${m.color}">${rows.length}</span>
+      </div>
+      <div class="group-rows">
+        ${rows.map(r=>`
+          <div class="group-row">
+            <span class="group-sno">${data.indexOf(r)+1}</span>
+            <span class="group-college">${r.college}</span>
+            <span class="group-course">${r.course}</span>
+            ${r.fav?'<span title="Favorite" style="color:#f59e0b"><i class="ti ti-star-filled"></i></span>':''}
+            ${r.pinned?'<span style="color:#3b82f6"><i class="ti ti-pin-filled"></i></span>':''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('table-view').style.display = v==='table' ? '' : 'none';
+  document.getElementById('group-view').style.display = v==='group' ? '' : 'none';
+  document.getElementById('btn-table').classList.toggle('active', v==='table');
+  document.getElementById('btn-group').classList.toggle('active', v==='group');
+  render();
+}
+
+function updateCollegeStatusByGlobalId(id, color) {
+  // Find the exact row to get the college name safely (bypassing inline escaping issues)
+  const targetRow = data.find(x => x.id === id);
+  if (targetRow) {
+    const collegeName = targetRow.college;
+    let count = 0;
+    
+    // Apply status to all courses from this exact college
+    data.forEach(item => {
+      if (item.college === collegeName) {
+        item.status = color;
+        count++;
+      }
+    });
+    save();
+    applyFilters();
+    showToast(`Updated status for ${count} course(s) at ${collegeName}`);
+  }
+}
+
+function toggleFav(id) {
+  const r = data.find(r=>r.id===id);
+  if (r) { r.fav = !r.fav; save(); applyFilters(); }
+}
+function togglePin(id) {
+  const r = data.find(r=>r.id===id);
+  if (r) { r.pinned = !r.pinned; save(); applyFilters(); }
+}
+function deleteRow(id) {
+  // Custom non-alert deletion flow could be built, for now keeping browser confirm as standard native modal for deletions
+  if (!confirm('Are you sure you want to remove this choice permanently?')) return;
+  data = data.filter(r=>r.id!==id);
+  save(); applyFilters();
+  showToast('Choice removed successfully.', 'success');
+}
+
+function onDragStart(e, gidx) {
+  dragSrcIdx = gidx;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const tr = document.querySelector(`tr[data-gidx="${gidx}"]`); if(tr) tr.classList.add('dragging'); }, 0);
+}
+function onDragOver(e, gidx) {
+  handleAutoScroll(e);
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('tr[data-gidx]').forEach(t=>t.classList.remove('drag-over-above','drag-over-below'));
+  const tr = document.querySelector(`tr[data-gidx="${gidx}"]`);
+  if (tr && gidx !== dragSrcIdx) {
+    const rect = tr.getBoundingClientRect();
+    const mid = rect.top + rect.height/2;
+    tr.classList.add(e.clientY < mid ? 'drag-over-above' : 'drag-over-below');
+  }
+}
+function onDragLeave(e) {
+  const tr = e.currentTarget;
+  tr.classList.remove('drag-over-above','drag-over-below');
+}
+function onDrop(e, targetGidx) {
+  clearInterval(autoScrollInterval);
+  e.preventDefault();
+  document.querySelectorAll('tr[data-gidx]').forEach(t=>t.classList.remove('drag-over-above','drag-over-below','dragging'));
+  if (dragSrcIdx === null || dragSrcIdx === targetGidx) return;
+  
+  const tr = document.querySelector(`tr[data-gidx="${targetGidx}"]`);
+  let insertAfter = false;
+  if (tr) {
+    const rect = tr.getBoundingClientRect();
+    insertAfter = e.clientY >= rect.top + rect.height/2;
+  }
+  
+  const item = data.splice(dragSrcIdx, 1)[0];
+  let newIdx = targetGidx > dragSrcIdx ? targetGidx - 1 : targetGidx;
+  if (insertAfter) newIdx++;
+  data.splice(Math.max(0, Math.min(newIdx, data.length)), 0, item);
+  
+  save();
+  applyFilters();
+  dragSrcIdx = null;
+}
+function onDragEnd() {
+  clearInterval(autoScrollInterval);
+  document.querySelectorAll('tr[data-gidx]').forEach(t=>t.classList.remove('drag-over-above','drag-over-below','dragging'));
+  dragSrcIdx = null;
+}
+
+function exportFinalCSV() {
+  // Download Final list with ALL user input parameters including statuses and cutoffs
+  const headers = ['Preference Order', 'College', 'Category', 'Course', 'College Status', 'R1 Cutoff', 'R2 Cutoff', 'R3 Cutoff', 'Special Round 1', 'Special Round 2', 'Starred', 'Pinned'];
+  
+  const rows = [headers, ...data.map((r, i) => [
+    i + 1,
+    r.college,
+    r.category,
+    r.course,
+    (r.status || 'None').toUpperCase(),
+    r.round1 || '',
+    r.round2 || '',
+    r.round3 || '',
+    r.special1 || '',
+    r.special2 || '',
+    r.fav ? 'Yes' : 'No',
+    r.pinned ? 'Yes' : 'No'
+  ])];
+  
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  download('ccmt_final_choices_list.csv', csv, 'text/csv');
+  showToast('Final List CSV downloaded successfully.', 'success');
+}
+
+function exportJSON() {
+  // Simple JSON Backup
+  const out = data.map((r,i) => ({
+      preference_number: i+1, college: r.college, category: r.category, course: r.course, status: r.status, favorite: r.fav, pinned: r.pinned, cutoffs: { R1: r.round1, R2: r.round2, R3: r.round3, SR1: r.special1, SR2: r.special2 }
+  }));
+  download('ccmt_backup.json', JSON.stringify(out, null, 2), 'application/json');
+  showToast('JSON Backup downloaded successfully.', 'success');
+}
+
+function download(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = name; a.click();
+}
+
+function doImport() {
+  const raw = document.getElementById('imp-text').value.trim();
+  try {
+    let rows;
+    if (raw.startsWith('[')) {
+      rows = JSON.parse(raw);
+    } else {
+      rows = raw.split('\n').slice(1).map(l=>{ const p=l.split(','); return {college:(p[0]||'').replace(/"/g,'').trim(),course:(p[1]||'').replace(/"/g,'').trim()}; });
+    }
+    const newItems = rows.filter(r=>r.college&&r.course).map((r,i)=>({
+      id: Date.now()+i, college:r.college, course:r.course,
+      category:categorize(r.course), fav:false, pinned:false,
+      round1:'', round2:'', round3:'', special1:'', special2:'', status:''
+    }));
+    if (!newItems.length) throw new Error('No valid rows found.');
+    data = [...data, ...newItems];
+    save(); applyFilters();
+    document.getElementById('imp-modal').classList.remove('open');
+    document.getElementById('imp-text').value = '';
+    showToast(`Successfully imported ${newItems.length} choices.`, 'success');
+  } catch(err) { 
+    showToast('Import failed: ' + err.message, 'error'); 
+  }
+}
+
+function updateField(id, field, value) {
+  const r = data.find(x=>x.id===id);
+  if(r){ r[field]=value; save(); }
+}
+
+/* --- AI FEATURES --- */
+
+async function callGemini(prompt, systemInstruction) {
+  const apiKey = ""; // API Key provided automatically by Canvas
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+  
+  const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: systemInstruction }] }
+  };
+
+  try {
+      const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const result = await response.json();
+      return result.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+  } catch (err) {
+      console.error(err);
+      return "Failed to fetch AI response. Please try again later or check your network connection.";
+  }
+}
+
+function formatMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
+async function analyzePreferences() {
+  const topChoices = data.slice(0, 15);
+  if (topChoices.length === 0) {
+    showToast("Add some choices first to analyze!", "error");
+    return;
+  }
+  
+  const choiceList = topChoices.map((c, i) => `${i+1}. ${c.college} - ${c.course}`).join('\n');
+  const prompt = `Here are my top ${topChoices.length} M.Tech preferences for CCMT counseling in order:\n${choiceList}\n\nPlease provide a constructive review of this choice filling order. Point out any thematic trends (e.g., heavily leaning towards VLSI or AI), obvious risks (like placing highly competitive institutes at the very bottom), and general strategic suggestions. Keep it concise (under 200 words) and format cleanly.`;
+  const systemInstruction = "You are an expert admission counselor for CCMT (Centralized Counseling for M.Tech) in India. Be helpful, direct, and provide actionable insights on the student's preference list.";
+
+  document.getElementById('ai-modal-title').innerHTML = '<i class="ti ti-brain" style="color:#7c3aed"></i> Preference Analysis';
+  document.getElementById('ai-content').style.display = 'none';
+  document.getElementById('ai-loader').style.display = 'block';
+  document.getElementById('ai-modal').classList.add('open');
+
+  const response = await callGemini(prompt, systemInstruction);
+  
+  document.getElementById('ai-loader').style.display = 'none';
+  document.getElementById('ai-content').innerHTML = formatMarkdown(response);
+  document.getElementById('ai-content').style.display = 'block';
+}
+
+async function askAIAboutCourse(id) {
+  const choice = data.find(c => c.id === id);
+  if (!choice) return;
+
+  const prompt = `Tell me about the M.Tech course '${choice.course}' at '${choice.college}'. What are the typical placement prospects, curriculum highlights, and the general reputation of this specific program? Limit your response to 3-4 sentences.`;
+  const systemInstruction = "You are an expert on Indian engineering colleges and CCMT counseling. Provide a highly concise overview of the specific M.Tech program requested.";
+
+  document.getElementById('ai-modal-title').innerHTML = `<i class="ti ti-sparkles" style="color:#7c3aed"></i> Course Insights`;
+  document.getElementById('ai-content').style.display = 'none';
+  document.getElementById('ai-content').innerHTML = `<strong>${choice.college}</strong><br><em>${choice.course}</em><br><br>`;
+  document.getElementById('ai-loader').style.display = 'block';
+  document.getElementById('ai-modal').classList.add('open');
+
+  const response = await callGemini(prompt, systemInstruction);
+  
+  document.getElementById('ai-loader').style.display = 'none';
+  document.getElementById('ai-content').innerHTML += formatMarkdown(response);
+  document.getElementById('ai-content').style.display = 'block';
+}
+
+initData();
+applyFilters();
+</script>
+</body>
+</html>
