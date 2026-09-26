@@ -95,3 +95,30 @@ export function conflictPath(path: string, device: string): string {
   if (dot > slash + 1) return `${path.slice(0, dot)} (${tag})${path.slice(dot)}`;
   return `${path} (${tag})`;
 }
+
+/**
+ * Microsoft's QuickXorHash (used by OneDrive), returned as base64.
+ * Each input byte is XORed into a 160-bit circular register, advancing 11 bits per byte;
+ * the file length is then XORed into the last 8 bytes.
+ */
+export function quickXorHash(data: ArrayBuffer): string {
+  const bytes = new Uint8Array(data);
+  const reg = new Uint8Array(20);
+  let pos = 0; // bit position in the 160-bit register
+  for (let i = 0; i < bytes.length; i++) {
+    const v = bytes[i] << (pos & 7);
+    const idx = pos >> 3;
+    reg[idx] ^= v & 0xff;
+    reg[idx === 19 ? 0 : idx + 1] ^= v >> 8;
+    pos += 11;
+    if (pos >= 160) pos -= 160;
+  }
+  let len = bytes.length;
+  for (let i = 0; i < 8; i++) {
+    reg[12 + i] ^= len % 256;
+    len = Math.floor(len / 256);
+  }
+  let bin = "";
+  for (let i = 0; i < 20; i++) bin += String.fromCharCode(reg[i]);
+  return btoa(bin);
+}

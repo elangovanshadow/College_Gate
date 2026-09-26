@@ -1,9 +1,9 @@
-export type ProviderType = "github" | "gdrive" | "mega";
+export type ProviderType = "github" | "gdrive" | "mega" | "onedrive";
 
 export interface RemoteEntry {
   /** Vault-relative path. */
   path: string;
-  /** Git-blob SHA-1 of the file content (same format for every provider). */
+  /** Content hash in the provider's format (git-blob SHA-1 unless the provider defines `hash`). */
   hash: string;
   /** Provider-specific id (e.g. Google Drive file id). */
   id?: string;
@@ -17,13 +17,18 @@ export interface Upload {
 
 export interface SyncProvider {
   readonly name: string;
+  /** Name of the provider's hash algorithm; used to invalidate cached local hashes. Default "git-sha1". */
+  readonly hashAlgo?: string;
+  /** Hashes content the way the provider reports it. Default: git-blob SHA-1. */
+  hash?(data: ArrayBuffer): Promise<string>;
   /** Throws a descriptive error when the provider is not configured. */
   validate(): void;
   /** Returns every file currently stored remotely, keyed by path. */
   list(): Promise<Map<string, RemoteEntry>>;
   download(entry: RemoteEntry): Promise<ArrayBuffer>;
   /** Applies uploads and deletions remotely (atomically if the backend supports it). */
-  apply(uploads: Upload[], deletes: RemoteEntry[], message: string): Promise<void>;
+  /** Returns the paths it had to skip (e.g. names the service does not allow), if any. */
+  apply(uploads: Upload[], deletes: RemoteEntry[], message: string): Promise<void | string[]>;
   /** Optional cleanup once a sync finishes. */
   close?(): Promise<void>;
 }
@@ -55,8 +60,20 @@ export interface MegaSettings {
   folderName: string;
 }
 
+export interface OneDriveSettings {
+  clientId: string;
+  /** "common" (any account), "organizations", or your school's domain / tenant ID. */
+  tenant: string;
+  refreshToken: string;
+  accessToken: string;
+  accessTokenExpiry: number;
+  /** Folder in OneDrive that holds the vault. */
+  folderName: string;
+}
+
 export interface LocalCacheEntry {
   hash: string;
+  algo?: string;
   mtime: number;
   size: number;
 }
@@ -76,6 +93,7 @@ export interface CloudSyncSettings {
   github: GitHubSettings;
   gdrive: GDriveSettings;
   mega: MegaSettings;
+  onedrive: OneDriveSettings;
   deviceName: string;
   syncOnStartup: boolean;
   autoSyncMinutes: number;
@@ -99,6 +117,14 @@ export const DEFAULT_SETTINGS: CloudSyncSettings = {
     folderId: "",
   },
   mega: { session: null, folderName: "Obsidian Cloud Sync" },
+  onedrive: {
+    clientId: "",
+    tenant: "common",
+    refreshToken: "",
+    accessToken: "",
+    accessTokenExpiry: 0,
+    folderName: "Obsidian Cloud Sync",
+  },
   deviceName: "",
   syncOnStartup: true,
   autoSyncMinutes: 10,

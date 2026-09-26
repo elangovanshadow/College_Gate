@@ -1,12 +1,12 @@
-# Cloud Sync (GitHub, Google Drive & MEGA) — Obsidian plugin
+# Cloud Sync (GitHub, Google Drive, MEGA & OneDrive) — Obsidian plugin
 
 Sync your Obsidian vault across all your devices (Windows, macOS, Linux, Android, iOS) using
-**a GitHub repository**, **Google Drive** or **MEGA** (20 GB free). No servers, no subscriptions — your notes go straight
+**a GitHub repository**, **Google Drive**, **MEGA** (20 GB free) or **OneDrive**, including school and work Microsoft 365 accounts. No servers, no subscriptions — your notes go straight
 from your device to your own account.
 
 ## Features
 
-- **Three backends:** a (private) GitHub repo, a folder in your Google Drive, or a folder in your MEGA account (20 GB free, end-to-end encrypted).
+- **Four backends:** a (private) GitHub repo, a folder in your Google Drive, a folder in your MEGA account (20 GB free, end-to-end encrypted), or a folder in your OneDrive. Microsoft 365 school accounts usually include 100 GB – 1 TB.
 - **Works on mobile:** it doesn't need Git or Node installed; it only makes HTTPS calls.
 - **Real two-way sync:** it compares each file with the version from the last sync, so it knows which side changed.
   - Changed on one device only → the change is copied to the other side.
@@ -76,6 +76,30 @@ but the first sync of a very large vault (many GB of PDFs or videos) onto a new 
 The plugin tells you when the limit is hit. Just sync again later and it continues where it stopped.
 Signing out of all sessions in MEGA's security settings logs the plugin out too. Sign in again in its settings.
 
+## Setup: OneDrive (school / work / personal Microsoft account)
+
+School and university Microsoft 365 accounts usually include a lot of OneDrive storage, often 100 GB – 1 TB, as set by your school.
+Personal Microsoft accounts get 5 GB free. You register your own small "app" with Microsoft once, so no third party ever gets access.
+
+1. Go to <https://entra.microsoft.com> (or <https://portal.azure.com>) → **App registrations** → **New registration**.
+   - Name: `Obsidian Cloud Sync`
+   - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
+   - Redirect URI: leave empty → **Register**
+2. **Authentication** → *Advanced settings* → **Allow public client flows: Yes** → Save.
+3. **API permissions** → Add a permission → Microsoft Graph → **Delegated** → tick `Files.ReadWrite` and `offline_access`.
+4. On **Overview**, copy the **Application (client) ID**.
+5. In the plugin settings choose **OneDrive (Microsoft / school account)**, paste the client ID, and leave Tenant as `common`.
+6. Click **Sign in with Microsoft**. A code appears. Open the link on any device, sign in with your school account and enter the code.
+7. Click **Test**, then **Sync now**. Repeat step 6 on every device.
+
+**Good to know for school accounts:**
+- If your school doesn't let students register apps, do steps 1–4 with a free *personal* Microsoft account (outlook.com). Then sign in with your school account in step 6.
+- If sign-in says **"Need admin approval"**, your school only allows apps that IT has approved. Ask IT to allow it, or use another backend.
+- Your school controls this account and its data, and access usually ends when you leave or graduate. Before then, switch the plugin to another backend (your notes are also on every device).
+- OneDrive doesn't allow some characters in file names (`" * : < > ? \ |`). Files with such names are skipped, and the plugin shows you which ones so you can rename them.
+
+Deleted files go to the OneDrive **Recycle bin**. Large files are uploaded in chunks.
+
 ## Notes and limits
 
 - Don't sync the same vault with another sync tool (Obsidian Sync, iCloud, Dropbox) at the same time.
@@ -92,4 +116,4 @@ npm run build   # type-check + production build
 ```
 
 Source: `src/main.ts` (plugin), `src/sync.ts` (sync engine), `src/providers/github.ts`,
-`src/providers/gdrive.ts`, `src/providers/mega.ts`, `src/settings.ts`.
+`src/providers/gdrive.ts`, `src/providers/mega.ts`, `src/providers/onedrive.ts`, `src/settings.ts`.

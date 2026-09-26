@@ -30,6 +30,14 @@ export class SyncEngine {
     private opts: SyncOptions
   ) {}
 
+  private get algo(): string {
+    return this.provider.hashAlgo ?? "git-sha1";
+  }
+
+  private hash(data: ArrayBuffer): Promise<string> {
+    return this.provider.hash ? this.provider.hash(data) : gitBlobSha(data);
+  }
+
   private get adapter() {
     return this.app.vault.adapter;
   }
@@ -69,12 +77,12 @@ export class SyncEngine {
       }
       seen.add(path);
       const c = cache[path];
-      if (c && c.mtime === stat.mtime && c.size === stat.size) {
+      if (c && c.mtime === stat.mtime && c.size === stat.size && (c.algo ?? "git-sha1") === this.algo) {
         out.set(path, c.hash);
         return;
       }
-      const hash = await gitBlobSha(await this.adapter.readBinary(path));
-      cache[path] = { hash, mtime: stat.mtime, size: stat.size };
+      const hash = await this.hash(await this.adapter.readBinary(path));
+      cache[path] = { hash, algo: this.algo, mtime: stat.mtime, size: stat.size };
       out.set(path, hash);
     });
     for (const p of Object.keys(cache)) if (!seen.has(p)) delete cache[p];
@@ -89,7 +97,9 @@ export class SyncEngine {
     }
     await this.adapter.writeBinary(path, data);
     const stat = await this.adapter.stat(path);
-    if (stat) this.settings.state.localCache[path] = { hash: await gitBlobSha(data), mtime: stat.mtime, size: stat.size };
+    if (stat) {
+      this.settings.state.localCache[path] = { hash: await this.hash(data), algo: this.algo, mtime: stat.mtime, size: stat.size };
+    }
   }
 
   async run(): Promise<SyncSummary> {
@@ -171,7 +181,7 @@ export class SyncEngine {
       this.opts.onProgress?.(`Downloading ${++done}/${downloads.length}`);
       const data = await this.provider.download(entry);
       await this.writeLocal(entry.path, data);
-      base[entry.path] = entry.hash.startsWith("unknown:") ? await gitBlobSha(data) : entry.hash;
+      base[entry.path] = entry.hash.startsWith("unknown:") ? await this.hash(data) : entry.hash;
       summary.downloaded++;
     });
 
@@ -182,7 +192,7 @@ export class SyncEngine {
       const data = await this.provider.download(remote.get(path)!);
       const cPath = normalizePath(conflictPath(path, "remote"));
       await this.writeLocal(cPath, data);
-      uploadList.push({ path: cPath, hash: await gitBlobSha(data), data });
+      uploadList.push({ path: cPath, hash: await this.hash(data), data });
       uploads.push(path);
       summary.conflicts.push(path);
     }
@@ -192,15 +202,19 @@ export class SyncEngine {
     for (const path of uploads) {
       uploadList.push({ path, hash: local.get(path)!, data: await this.adapter.readBinary(path) });
     }
+    let rejected = new Set<string>();
     if (uploadList.length || remoteDeletes.length) {
       const msg =
         `Vault sync${device ? ` from ${device}` : ""}: ` +
         `${uploadList.length} changed, ${remoteDeletes.length} deleted`;
-      await this.provider.apply(uploadList, remoteDeletes, msg);
+      rejected = new Set((await this.provider.apply(uploadList, remoteDeletes, msg)) || []);
     }
-    for (const u of uploadList) base[u.path] = u.hash;
+    for (const u of uploadList) {
+      if (rejected.has(u.path)) summary.skipped.push(u.path);
+      else base[u.path] = u.hash;
+    }
     for (const d of remoteDeletes) delete base[d.path];
-    summary.uploaded = uploadList.length;
+    summary.uploaded = uploadList.length - rejected.size;
     summary.deletedRemote = remoteDeletes.length;
 
     // 4. Apply remote deletions locally (moved to the vault's .trash folder, not destroyed).

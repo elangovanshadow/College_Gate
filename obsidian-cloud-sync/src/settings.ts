@@ -1,7 +1,8 @@
 import { App, Modal, Notice, PluginSettingTab, Setting } from "obsidian";
 import type CloudSyncPlugin from "./main";
-import { DeviceCode, pollDeviceFlow, startDeviceFlow } from "./providers/gdrive";
+import { pollDeviceFlow, startDeviceFlow } from "./providers/gdrive";
 import { megaLogin } from "./providers/mega";
+import { msPollDeviceFlow, msStartDeviceFlow } from "./providers/onedrive";
 import { ProviderType } from "./types";
 
 export class CloudSyncSettingTab extends PluginSettingTab {
@@ -23,6 +24,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           .addOption("github", "GitHub repository")
           .addOption("gdrive", "Google Drive")
           .addOption("mega", "MEGA (20 GB free)")
+          .addOption("onedrive", "OneDrive (Microsoft / school account)")
           .setValue(s.provider)
           .onChange(async (v) => {
             s.provider = v as ProviderType;
@@ -33,6 +35,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
 
     if (s.provider === "github") this.displayGitHub(containerEl);
     else if (s.provider === "mega") this.displayMega(containerEl);
+    else if (s.provider === "onedrive") this.displayOneDrive(containerEl);
     else this.displayGDrive(containerEl);
 
     new Setting(containerEl).setName("General").setHeading();
@@ -186,7 +189,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
             }
             try {
               const code = await startDeviceFlow(g.clientId);
-              new GoogleSignInModal(this.app, code, async (cancelled) => {
+              new DeviceCodeModal(this.app, "Sign in with Google", code.verification_url, code.user_code, async (cancelled) => {
                 const t = await pollDeviceFlow(g, code, cancelled);
                 g.refreshToken = t.refreshToken;
                 g.accessToken = t.accessToken;
@@ -278,6 +281,92 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     this.addTestButton(el);
   }
 
+  private displayOneDrive(el: HTMLElement) {
+    const o = this.plugin.settings.onedrive;
+    const save = () => this.plugin.saveSettings();
+    new Setting(el).setName("OneDrive").setHeading();
+    const help = el.createEl("div", { cls: "setting-item-description" });
+    help.createEl("p", {
+      text:
+        "Works with school/work Microsoft 365 accounts (usually 100 GB – 1 TB, set by your school) and personal " +
+        "Microsoft accounts (5 GB free). One-time setup, about 5 minutes — you register your own app so no third party gets access:",
+    });
+    const ol = help.createEl("ol");
+    ol.createEl("li", { text: "Go to entra.microsoft.com (or portal.azure.com) → App registrations → New registration. Name it “Obsidian Cloud Sync”." });
+    ol.createEl("li", {
+      text:
+        "Supported account types: “Accounts in any organizational directory and personal Microsoft accounts”. " +
+        "No redirect URI is needed. Click Register.",
+    });
+    ol.createEl("li", { text: "Authentication → Advanced settings → “Allow public client flows” → Yes → Save." });
+    ol.createEl("li", { text: "API permissions → Add → Microsoft Graph → Delegated → Files.ReadWrite and offline_access." });
+    ol.createEl("li", { text: "Copy the “Application (client) ID” from Overview into the box below, then click “Sign in with Microsoft”." });
+    help.createEl("p", {
+      text:
+        "If your school doesn't let students register apps, register it with a personal Microsoft account instead. " +
+        "If sign-in then says an admin must approve the app, your school's IT team has to allow it.",
+    });
+
+    new Setting(el)
+      .setName("Application (client) ID")
+      .addText((t) =>
+        t
+          .setPlaceholder("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+          .setValue(o.clientId)
+          .onChange(async (v) => ((o.clientId = v.trim()), await save()))
+      );
+    new Setting(el)
+      .setName("Tenant")
+      .setDesc(
+        "Leave as “common”. Only if you registered the app as single-tenant inside your school's directory, " +
+          "enter your school's domain (e.g. myuniversity.edu) here."
+      )
+      .addText((t) => t.setValue(o.tenant).onChange(async (v) => ((o.tenant = v.trim() || "common"), await save())));
+    new Setting(el)
+      .setName("OneDrive folder name")
+      .setDesc("Folder in your OneDrive that stores the vault. Created automatically.")
+      .addText((t) => t.setValue(o.folderName).onChange(async (v) => ((o.folderName = v.trim()), await save())));
+
+    new Setting(el)
+      .setName("Account")
+      .setDesc(o.refreshToken ? "Signed in ✔" : "Not signed in")
+      .addButton((b) =>
+        b
+          .setButtonText(o.refreshToken ? "Sign in again" : "Sign in with Microsoft")
+          .setCta()
+          .onClick(async () => {
+            if (!o.clientId) {
+              new Notice("Enter the application (client) ID first.");
+              return;
+            }
+            try {
+              const code = await msStartDeviceFlow(o.clientId, o.tenant);
+              new DeviceCodeModal(this.app, "Sign in with Microsoft", code.verification_uri, code.user_code, async (cancelled) => {
+                const t = await msPollDeviceFlow(o, code, cancelled);
+                o.refreshToken = t.refreshToken;
+                o.accessToken = t.accessToken;
+                o.accessTokenExpiry = Date.now() + t.expiresIn * 1000;
+                await save();
+                new Notice("Cloud Sync: signed in to OneDrive.");
+                this.display();
+              }).open();
+            } catch (e) {
+              new Notice(e instanceof Error ? e.message : String(e), 10000);
+            }
+          })
+      )
+      .addButton((b) =>
+        b.setButtonText("Sign out").onClick(async () => {
+          o.refreshToken = "";
+          o.accessToken = "";
+          o.accessTokenExpiry = 0;
+          await save();
+          this.display();
+        })
+      );
+    this.addTestButton(el);
+  }
+
   private addTestButton(el: HTMLElement) {
     new Setting(el).setName("Test connection").addButton((b) =>
       b.setButtonText("Test").onClick(async () => {
@@ -295,27 +384,34 @@ export class CloudSyncSettingTab extends PluginSettingTab {
   }
 }
 
-class GoogleSignInModal extends Modal {
+/** Shows a device-code sign-in (Google / Microsoft): open a link anywhere, type the code. */
+class DeviceCodeModal extends Modal {
   private cancelled = false;
 
-  constructor(app: App, private code: DeviceCode, private run: (cancelled: () => boolean) => Promise<void>) {
+  constructor(
+    app: App,
+    private title: string,
+    private url: string,
+    private userCode: string,
+    private run: (cancelled: () => boolean) => Promise<void>
+  ) {
     super(app);
   }
 
   onOpen() {
     const { contentEl } = this;
-    this.titleEl.setText("Sign in with Google");
+    this.titleEl.setText(this.title);
     contentEl.createEl("p", { text: "1. Open this link (on any device):" });
-    const link = contentEl.createEl("a", { text: this.code.verification_url, href: this.code.verification_url });
+    const link = contentEl.createEl("a", { text: this.url, href: this.url });
     link.setAttr("target", "_blank");
     contentEl.createEl("p", { text: "2. Enter this code:" });
-    const codeEl = contentEl.createEl("div", { text: this.code.user_code });
+    const codeEl = contentEl.createEl("div", { text: this.userCode });
     codeEl.style.fontSize = "1.8em";
     codeEl.style.fontWeight = "bold";
     codeEl.style.letterSpacing = "0.1em";
     codeEl.style.userSelect = "text";
     new Setting(contentEl).addButton((b) =>
-      b.setButtonText("Copy code").onClick(() => navigator.clipboard.writeText(this.code.user_code))
+      b.setButtonText("Copy code").onClick(() => navigator.clipboard.writeText(this.userCode))
     );
     const status = contentEl.createEl("p", { text: "Waiting for approval…", cls: "setting-item-description" });
 

@@ -2,6 +2,7 @@ import { App, Modal, Notice, Platform, Plugin, Setting } from "obsidian";
 import { GDriveProvider } from "./providers/gdrive";
 import { GitHubProvider } from "./providers/github";
 import { MegaProvider } from "./providers/mega";
+import { OneDriveProvider } from "./providers/onedrive";
 import { CloudSyncSettingTab } from "./settings";
 import { SyncEngine } from "./sync";
 import { CloudSyncSettings, DEFAULT_SETTINGS, SyncProvider } from "./types";
@@ -44,6 +45,7 @@ export default class CloudSyncPlugin extends Plugin {
       github: { ...DEFAULT_SETTINGS.github, ...data.github },
       gdrive: { ...DEFAULT_SETTINGS.gdrive, ...data.gdrive },
       mega: { ...DEFAULT_SETTINGS.mega, ...data.mega },
+      onedrive: { ...DEFAULT_SETTINGS.onedrive, ...data.onedrive },
       state: { ...DEFAULT_SETTINGS.state, ...data.state },
     };
     if (!this.settings.deviceName) {
@@ -73,6 +75,8 @@ export default class CloudSyncPlugin extends Plugin {
         return new GitHubProvider(this.settings.github);
       case "mega":
         return new MegaProvider(this.settings.mega);
+      case "onedrive":
+        return new OneDriveProvider(this.settings.onedrive, () => this.saveSettings());
       default:
         return new GDriveProvider(this.settings.gdrive, () => this.saveSettings());
     }
@@ -85,6 +89,8 @@ export default class CloudSyncPlugin extends Plugin {
         return `github:${s.github.owner}/${s.github.repo}#${s.github.branch}:${s.github.rootDir}`;
       case "mega":
         return `mega:${s.mega.session?.email ?? ""}:${s.mega.folderName}`;
+      case "onedrive":
+        return `onedrive:${s.onedrive.tenant}:${s.onedrive.folderName}`;
       default:
         return `gdrive:${s.gdrive.folderName}`;
     }
@@ -146,7 +152,12 @@ export default class CloudSyncPlugin extends Plugin {
         );
       }
       if (r.skipped.length && !background) {
-        new Notice(`Cloud Sync: skipped ${r.skipped.length} file(s) larger than ${this.settings.maxFileSizeMB} MB.`);
+        new Notice(
+          `Cloud Sync: skipped ${r.skipped.length} file(s) — larger than ${this.settings.maxFileSizeMB} MB ` +
+            `or with a name ${provider.name} doesn't allow:\n` +
+            r.skipped.slice(0, 5).join("\n"),
+          10000
+        );
       }
       this.updateStatus();
     } catch (e) {

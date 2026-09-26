@@ -1,7 +1,7 @@
 {
   "name": "obsidian-cloud-sync",
-  "version": "1.1.0",
-  "description": "Sync your Obsidian vault across devices using a GitHub repository, Google Drive or MEGA.",
+  "version": "1.2.0",
+  "description": "Sync your Obsidian vault across devices using a GitHub repository, Google Drive, MEGA or OneDrive.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
