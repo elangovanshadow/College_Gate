@@ -1,6 +1,7 @@
 import { App, Modal, Notice, Platform, Plugin, Setting } from "obsidian";
 import { GDriveProvider } from "./providers/gdrive";
 import { GitHubProvider } from "./providers/github";
+import { MegaProvider } from "./providers/mega";
 import { CloudSyncSettingTab } from "./settings";
 import { SyncEngine } from "./sync";
 import { CloudSyncSettings, DEFAULT_SETTINGS, SyncProvider } from "./types";
@@ -42,6 +43,7 @@ export default class CloudSyncPlugin extends Plugin {
       ...data,
       github: { ...DEFAULT_SETTINGS.github, ...data.github },
       gdrive: { ...DEFAULT_SETTINGS.gdrive, ...data.gdrive },
+      mega: { ...DEFAULT_SETTINGS.mega, ...data.mega },
       state: { ...DEFAULT_SETTINGS.state, ...data.state },
     };
     if (!this.settings.deviceName) {
@@ -66,16 +68,26 @@ export default class CloudSyncPlugin extends Plugin {
   }
 
   createProvider(): SyncProvider {
-    return this.settings.provider === "github"
-      ? new GitHubProvider(this.settings.github)
-      : new GDriveProvider(this.settings.gdrive, () => this.saveSettings());
+    switch (this.settings.provider) {
+      case "github":
+        return new GitHubProvider(this.settings.github);
+      case "mega":
+        return new MegaProvider(this.settings.mega);
+      default:
+        return new GDriveProvider(this.settings.gdrive, () => this.saveSettings());
+    }
   }
 
   private targetKey(): string {
     const s = this.settings;
-    return s.provider === "github"
-      ? `github:${s.github.owner}/${s.github.repo}#${s.github.branch}:${s.github.rootDir}`
-      : `gdrive:${s.gdrive.folderName}`;
+    switch (s.provider) {
+      case "github":
+        return `github:${s.github.owner}/${s.github.repo}#${s.github.branch}:${s.github.rootDir}`;
+      case "mega":
+        return `mega:${s.mega.session?.email ?? ""}:${s.mega.folderName}`;
+      default:
+        return `gdrive:${s.gdrive.folderName}`;
+    }
   }
 
   isConfigured(): boolean {

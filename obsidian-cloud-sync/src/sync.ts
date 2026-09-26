@@ -93,6 +93,14 @@ export class SyncEngine {
   }
 
   async run(): Promise<SyncSummary> {
+    try {
+      return await this.runInner();
+    } finally {
+      await this.provider.close?.();
+    }
+  }
+
+  private async runInner(): Promise<SyncSummary> {
     const summary: SyncSummary = {
       uploaded: 0,
       downloaded: 0,

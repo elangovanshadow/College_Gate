@@ -1,6 +1,7 @@
 import { App, Modal, Notice, PluginSettingTab, Setting } from "obsidian";
 import type CloudSyncPlugin from "./main";
 import { DeviceCode, pollDeviceFlow, startDeviceFlow } from "./providers/gdrive";
+import { megaLogin } from "./providers/mega";
 import { ProviderType } from "./types";
 
 export class CloudSyncSettingTab extends PluginSettingTab {
@@ -21,6 +22,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
         d
           .addOption("github", "GitHub repository")
           .addOption("gdrive", "Google Drive")
+          .addOption("mega", "MEGA (20 GB free)")
           .setValue(s.provider)
           .onChange(async (v) => {
             s.provider = v as ProviderType;
@@ -30,6 +32,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
       );
 
     if (s.provider === "github") this.displayGitHub(containerEl);
+    else if (s.provider === "mega") this.displayMega(containerEl);
     else this.displayGDrive(containerEl);
 
     new Setting(containerEl).setName("General").setHeading();
@@ -209,6 +212,72 @@ export class CloudSyncSettingTab extends PluginSettingTab {
     this.addTestButton(el);
   }
 
+  private displayMega(el: HTMLElement) {
+    const m = this.plugin.settings.mega;
+    const save = () => this.plugin.saveSettings();
+    new Setting(el).setName("MEGA").setHeading();
+    el.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Sign in with your MEGA account (free accounts get 20 GB). Your password is used once to create a " +
+        "session and is not saved. Free accounts can download about 5 GB per day, which is plenty for notes, " +
+        "but the first sync of a very large vault onto a new device may need more than one day.",
+    });
+
+    new Setting(el)
+      .setName("MEGA folder name")
+      .setDesc("Folder in your MEGA Cloud Drive that stores the vault. Created automatically.")
+      .addText((t) => t.setValue(m.folderName).onChange(async (v) => ((m.folderName = v.trim()), await save())));
+
+    if (m.session) {
+      new Setting(el)
+        .setName("Account")
+        .setDesc(`Signed in as ${m.session.email} ✔`)
+        .addButton((b) =>
+          b.setButtonText("Sign out").onClick(async () => {
+            m.session = null;
+            await save();
+            this.display();
+          })
+        );
+    } else {
+      let email = "";
+      let password = "";
+      let code = "";
+      new Setting(el).setName("Email").addText((t) => t.onChange((v) => (email = v.trim())));
+      new Setting(el).setName("Password").addText((t) => {
+        t.inputEl.type = "password";
+        t.onChange((v) => (password = v));
+      });
+      new Setting(el)
+        .setName("Two-factor code")
+        .setDesc("Only if you turned on two-factor authentication in MEGA.")
+        .addText((t) => t.setPlaceholder("123456").onChange((v) => (code = v.trim())));
+      new Setting(el).addButton((b) =>
+        b
+          .setButtonText("Sign in to MEGA")
+          .setCta()
+          .onClick(async () => {
+            if (!email || !password) {
+              new Notice("Enter your MEGA email and password.");
+              return;
+            }
+            b.setDisabled(true).setButtonText("Signing in…");
+            try {
+              m.session = await megaLogin(email, password, code);
+              await save();
+              new Notice("Cloud Sync: signed in to MEGA.");
+              this.display();
+            } catch (e) {
+              new Notice(e instanceof Error ? e.message : String(e), 10000);
+              b.setDisabled(false).setButtonText("Sign in to MEGA");
+            }
+          })
+      );
+    }
+    this.addTestButton(el);
+  }
+
   private addTestButton(el: HTMLElement) {
     new Setting(el).setName("Test connection").addButton((b) =>
       b.setButtonText("Test").onClick(async () => {
@@ -216,6 +285,7 @@ export class CloudSyncSettingTab extends PluginSettingTab {
           const p = this.plugin.createProvider();
           p.validate();
           const files = await p.list();
+          await p.close?.();
           new Notice(`Connected to ${p.name}. ${files.size} file(s) stored remotely.`);
         } catch (e) {
           new Notice(`Connection failed: ${e instanceof Error ? e.message : e}`, 10000);

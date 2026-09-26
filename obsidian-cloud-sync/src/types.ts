@@ -1,4 +1,4 @@
-export type ProviderType = "github" | "gdrive";
+export type ProviderType = "github" | "gdrive" | "mega";
 
 export interface RemoteEntry {
   /** Vault-relative path. */
@@ -24,6 +24,8 @@ export interface SyncProvider {
   download(entry: RemoteEntry): Promise<ArrayBuffer>;
   /** Applies uploads and deletions remotely (atomically if the backend supports it). */
   apply(uploads: Upload[], deletes: RemoteEntry[], message: string): Promise<void>;
+  /** Optional cleanup once a sync finishes. */
+  close?(): Promise<void>;
 }
 
 export interface GitHubSettings {
@@ -46,6 +48,13 @@ export interface GDriveSettings {
   folderId: string;
 }
 
+export interface MegaSettings {
+  /** Login session (no password is stored). */
+  session: { key: string; sid: string; name: string; user: string; email: string } | null;
+  /** Name of the folder (in the MEGA Cloud Drive root) that holds the vault. */
+  folderName: string;
+}
+
 export interface LocalCacheEntry {
   hash: string;
   mtime: number;
@@ -66,6 +75,7 @@ export interface CloudSyncSettings {
   provider: ProviderType;
   github: GitHubSettings;
   gdrive: GDriveSettings;
+  mega: MegaSettings;
   deviceName: string;
   syncOnStartup: boolean;
   autoSyncMinutes: number;
@@ -88,6 +98,7 @@ export const DEFAULT_SETTINGS: CloudSyncSettings = {
     folderName: "Obsidian Cloud Sync",
     folderId: "",
   },
+  mega: { session: null, folderName: "Obsidian Cloud Sync" },
   deviceName: "",
   syncOnStartup: true,
   autoSyncMinutes: 10,

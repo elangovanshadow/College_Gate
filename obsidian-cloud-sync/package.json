@@ -1,13 +1,18 @@
 {
   "name": "obsidian-cloud-sync",
-  "version": "1.0.0",
-  "description": "Sync your Obsidian vault across devices using a GitHub repository or Google Drive.",
+  "version": "1.1.0",
+  "description": "Sync your Obsidian vault across devices using a GitHub repository, Google Drive or MEGA.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
   },
-  "keywords": ["obsidian", "sync", "github", "google-drive"],
+  "keywords": [
+    "obsidian",
+    "sync",
+    "github",
+    "google-drive"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -16,5 +21,8 @@
     "obsidian": "latest",
     "tslib": "^2.6.2",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "megajs": "^1.3.10"
   }
 }

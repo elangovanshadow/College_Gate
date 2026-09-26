@@ -1,9 +1,9 @@
 {
   "id": "cloud-sync-gh-gdrive",
-  "name": "Cloud Sync (GitHub & Google Drive)",
-  "version": "1.0.0",
+  "name": "Cloud Sync (GitHub, Google Drive & MEGA)",
+  "version": "1.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Sync your vault across devices using a GitHub repository or Google Drive. Works on desktop and mobile.",
+  "description": "Sync your vault across devices using a GitHub repository, Google Drive or MEGA. Works on desktop and mobile.",
   "author": "elangovanshadow",
   "isDesktopOnly": false
 }

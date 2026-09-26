@@ -1,12 +1,12 @@
-# Cloud Sync (GitHub & Google Drive) — Obsidian plugin
+# Cloud Sync (GitHub, Google Drive & MEGA) — Obsidian plugin
 
 Sync your Obsidian vault across all your devices (Windows, macOS, Linux, Android, iOS) using
-**a GitHub repository** or **Google Drive**. No servers, no subscriptions — your notes go straight
+**a GitHub repository**, **Google Drive** or **MEGA** (20 GB free). No servers, no subscriptions — your notes go straight
 from your device to your own account.
 
 ## Features
 
-- **Two backends:** a (private) GitHub repo, or a folder in your Google Drive.
+- **Three backends:** a (private) GitHub repo, a folder in your Google Drive, or a folder in your MEGA account (20 GB free, end-to-end encrypted).
 - **Works on mobile:** it doesn't need Git or Node installed; it only makes HTTPS calls.
 - **Real two-way sync:** it compares each file with the version from the last sync, so it knows which side changed.
   - Changed on one device only → the change is copied to the other side.
@@ -60,6 +60,22 @@ Drive. It asks only for the `drive.file` scope, which lets it see files it creat
 The vault is stored as files inside the Drive folder you name (default **Obsidian Cloud Sync**).
 Each file is named after its path inside the vault, for example `Daily/2026-09-26.md`.
 
+## Setup: MEGA (20 GB free)
+
+1. Create a free account at <https://mega.nz> if you don't have one.
+2. In the plugin settings choose **MEGA (20 GB free)**.
+3. Enter your MEGA email and password, plus the 6-digit code if you use two-factor authentication. Click **Sign in to MEGA**.
+   Your password is used once to create a login session and is **not saved**. Only the session is kept, in this device's plugin settings, and it is never synced.
+4. Click **Test**, then **Sync now**. Repeat the sign-in on every device.
+
+The vault is stored as a normal folder tree inside the MEGA folder you name (default **Obsidian Cloud Sync**), so you
+can also browse your notes in the MEGA app. Files you delete go to the MEGA **Rubbish bin**, where you can recover them.
+
+**MEGA limits:** free accounts can download about **5 GB per day**. That's plenty for day-to-day syncing of notes,
+but the first sync of a very large vault (many GB of PDFs or videos) onto a new device may need more than one day.
+The plugin tells you when the limit is hit. Just sync again later and it continues where it stopped.
+Signing out of all sessions in MEGA's security settings logs the plugin out too. Sign in again in its settings.
+
 ## Notes and limits
 
 - Don't sync the same vault with another sync tool (Obsidian Sync, iCloud, Dropbox) at the same time.
@@ -76,4 +92,4 @@ npm run build   # type-check + production build
 ```
 
 Source: `src/main.ts` (plugin), `src/sync.ts` (sync engine), `src/providers/github.ts`,
-`src/providers/gdrive.ts`, `src/settings.ts`.
+`src/providers/gdrive.ts`, `src/providers/mega.ts`, `src/settings.ts`.
